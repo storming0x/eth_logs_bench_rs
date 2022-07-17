@@ -1,0 +1,17 @@
+[package]
+name = "get_vault_logs"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ethers-solc = { git = "https://github.com/gakonst/ethers-rs", default-features = false, features = ["async", "svm-solc"] }
+ethers-etherscan = { git = "https://github.com/gakonst/ethers-rs"}
+ethers-core = { git = "https://github.com/gakonst/ethers-rs"}
+ethers-providers = { git = "https://github.com/gakonst/ethers-rs"}
+tokio = { version = "1.18", features = ["macros", "rt-multi-thread"] }
+eyre = "0.6"
+rayon = "1.5"
+serde_json = "1.0"
+clap = { version = "3.2", features = ["derive"] }
