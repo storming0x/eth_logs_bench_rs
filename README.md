@@ -1,5 +1,7 @@
 ### Benchmark for fetching ETH logs
 
-### Running main
+### Running the program
 
-´cargo run -- -a <ETH_ADDRESS> -u <ETH_URL>´
+```bash
+cargo run -- -a <ETH_ADDRESS> -u <ETH_URL>
+```
