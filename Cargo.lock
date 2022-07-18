@@ -969,7 +969,7 @@ dependencies = [
  "ethers-providers",
  "ethers-solc",
  "eyre",
- "rayon",
+ "futures",
  "serde_json",
  "tokio",
 ]

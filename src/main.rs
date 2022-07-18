@@ -3,12 +3,13 @@ use ethers_core::types::{Address, BlockNumber, Filter, U64};
 // use ethers_etherscan::Client;
 use ethers_providers::{Http, Middleware, Provider};
 use eyre::Result;
-use rayon::prelude::*;
+use futures::{stream, StreamExt};
 use serde_json::json;
 use std::cmp;
 use std::time::Instant;
 
 const BATCH_SIZE: i64 = 9999; // eth logs infura only allows 10K blocks
+const PARALLEL_REQUESTS: usize = 10;
 
 #[derive(Parser, Debug)]
 #[clap(about, version, author)]
@@ -43,14 +44,20 @@ async fn main() -> Result<()> {
     println!("last_block: {}", last_block);
 
     let page_vector = build_page_vector(last_block);
+    let ref_client = &client;
 
-    let results = page_vector
-        .par_iter()
-        .map(|(start, end)| fetch_logs(&client, vault_addr, *start, *end))
-        .map(|res| res.unwrap())
-        .collect::<Vec<String>>();
+    let tasks = stream::iter(page_vector)
+        .map(|(start, end)| async move { fetch_logs(ref_client, vault_addr, start, end).await })
+        .buffered(PARALLEL_REQUESTS);
 
-    println!("{:?}", results);
+    tasks
+        .for_each(|r| async {
+            match r {
+                Ok(r) => println!("{:?}", r),
+                Err(e) => eprintln!("Got an error: {}", e),
+            }
+        })
+        .await;
 
     Ok(())
 }
@@ -66,7 +73,7 @@ fn build_page_vector(last_block: U64) -> Vec<(i64, i64)> {
     page_vector
 }
 
-fn fetch_logs(
+async fn fetch_logs(
     client: &Provider<Http>,
     vault_addr: ethers_core::types::H160,
     start: i64,
@@ -78,16 +85,14 @@ fn fetch_logs(
         .address(vault_addr);
 
     let start_counter = Instant::now();
-    let logs_future = client.get_logs(&log_filter);
-    let logs = tokio::runtime::Runtime::new()?.block_on(logs_future)?;
+    let logs = client.get_logs(&log_filter).await?;
 
     // println!("{:?}", logs);
 
-    let threads = rayon::current_num_threads();
     let elapsed = start_counter.elapsed().as_millis();
     let rate = logs.len() as u128 / elapsed; // rate in millis
-    let res_json = json!({ "threads": threads, "page_size":  BATCH_SIZE, "elapsed": elapsed.to_string(), "rate": rate.to_string()} );
-    let res = format!("{}\n", res_json.to_string());
-    // println!("{}", res);
+    let res_json = json!({ "threads": PARALLEL_REQUESTS, "page_size":  BATCH_SIZE, "elapsed": elapsed.to_string(), "rate": rate.to_string()} );
+    let res = format!("{}\n", res_json);
+    println!("{}", res);
     Ok(res)
 }
